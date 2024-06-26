@@ -1,14 +1,30 @@
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from beanie import Document, init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
-import datetime
 from pydantic import BaseModel
 from typing import List
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import datetime
 import asyncio
-import logging
 
-# Use DEBUG level for development
-logging.basicConfig(level=logging.DEBUG)  
+app = FastAPI()
+
+# Set all CORS enabled origins
+origins = [
+    "http://localhost",
+    "http://localhost:3000",  # React frontend
+    "http://192.168.100.241:3000",
+    # Add any other origins as needed
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # MongoDB connection string
 MONGODB_URI = "mongodb+srv://upwork2:upwork2@cluster0.g9bf3t1.mongodb.net/NursingAppDB-upwork2"
 
@@ -46,19 +62,10 @@ class ExceptionResponse(BaseModel):
             visit_id=document.visit_id,
         )
 
-# FastAPI app
-app = FastAPI()
-
 @app.on_event("startup")
 async def on_startup():
-    try:
-        client = AsyncIOMotorClient(MONGODB_URI)
-        await init_beanie(database=client.get_default_database(), document_models=[ExceptionDocument])
-        logging.info("MongoDB connection established")
-    except Exception as e:
-        logging.error(f"Failed to initialize MongoDB: {str(e)}")
-        # Optionally raise an exception or handle the error as needed
-        raise RuntimeError("Failed to initialize MongoDB") from e
+    client = AsyncIOMotorClient(MONGODB_URI)
+    await init_beanie(database=client.get_default_database(), document_models=[ExceptionDocument])
 
 # Route to create an exception
 @app.post("/exceptions/", response_model=ExceptionResponse)
